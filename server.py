@@ -41,14 +41,14 @@ def view_email(
     mailbox: Annotated[str, Field(description="IMAP mailbox to check", default="INBOX")] = "INBOX"
 ) -> dict:
     """
-    Retrieve details of a specific email.
+    Retrieve the content of a specific email.
 
     Args:
         email_id: ID of the email to retrieve.
         mailbox: IMAP mailbox to check (default: "INBOX").
 
     Returns:
-        A dictionary with the email's subject, sender, and body.
+        A dictionary with the email's subject, sender, and content.
     """
     try:
         mail = imaplib.IMAP4_SSL(SERVER)
@@ -162,7 +162,7 @@ def check_unseen(
     try:
         mail = imaplib.IMAP4_SSL(SERVER)
         mail.login(USER, PASSWORD)
-        mail.select("INBOX")
+        mail.select("INBOX", readonly=True)
         status, recent = mail.search(None, "UNSEEN")
         email_ids = recent[0].split()
         result_subjects = {}
@@ -182,27 +182,29 @@ def check_unseen(
 
 @mcp.tool
 def search_emails(
-    criterion: Annotated[Literal["ALL", "ANSWERED", "BCC", "BEFORE", "BODY", "CC", "DELETED", "DRAFT", "FLAGGED", "FROM", "HEADER", "KEYWORD", "LARGER", "NEW", "NOT", "OLD", "ON", "OR", "RECENT", "SEEN", "SENTBEFORE", "SENTON", "SENDSINCE", "SINCE", "SMALLER", "SUBJECT", "TEXT", "TO", "UID", "UNANSWERED", "UNDELETED", "UNDRAFT", "UNFLAGGED", "UNKEYWORD", "UNSEEN"], Field(description="Search criterion for emails. NOT, AND, OR are used to combine criterions.")],
-    value: Annotated[str, Field(description='Value to match against the criterion. If a date based criterion is used (such as BEFORE, SINCE ...) the date format to use is something like "01-Jan-2012"')],
+    impa4_query: Annotated[str, Field(description="Imap4 query composed of criteriosn and values")],
     mailbox: Annotated[str, Field(description="IMAP mailbox to search", default="INBOX")] = "INBOX"
 ) -> dict:
     """
     Search for emails based on a criterion and value.
 
     Args:
-        criterion: Search criterion (e.g., "SUBJECT", "FROM", "BODY", etc.).
-        value: Value to match against the criterion.
+        impa4_query: criterions and values to match the criterions.
         mailbox: IMAP mailbox to search (default: "INBOX").
 
+    criterion availables:  ["ALL", "ANSWERED", "BCC", "BEFORE", "BODY", "CC", "DELETED", "DRAFT", "FLAGGED", "FROM", "HEADER", "KEYWORD", "LARGER", "NEW", "NOT", "OLD", "ON", "OR", "RECENT", "SEEN", "SENTBEFORE", "SENTON", "SENDSINCE", "SINCE", "SMALLER", "SUBJECT", "TEXT", "TO", "UID", "UNANSWERED", "UNDELETED", "UNDRAFT", "UNFLAGGED", "UNKEYWORD", "UNSEEN"]
+    ex: 'FROM "email@stuff.org" SUBJECT "the subject" UNSEEN'
+    Date format must be of the following format: 13-Jun-2025 (ex: 'SINCE "13-Jun-2025" BEFORE "15-Jun-2025")
+    
     Returns:
         A dict of email (with IDs as keys) that match the query.
     """
     try:
         mail = imaplib.IMAP4_SSL(SERVER)
         mail.login(USER, PASSWORD)
-        mail.select(mailbox)
+        mail.select(mailbox, readonly=True)
 
-        status, messages = mail.search(None, criterion, value)
+        status, messages = mail.search(None, f'({impa4_query})')
         if status != "OK":
             return ["No matching emails found."]
 
